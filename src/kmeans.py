@@ -11,6 +11,8 @@ from pyspark.ml.evaluation import ClusteringEvaluator
 from pyspark.sql import SparkSession
 from preprocess import Preprocessor
 from db import Database
+from create_tables import create_open_food_facts
+import loguru
 
 
 class KMeansClustering:
@@ -36,8 +38,16 @@ class KMeansClustering:
 
 
 def main():
+
+    create_open_food_facts()
+
     config = configparser.ConfigParser()
     config.read('config.ini')
+
+    # .config("spark.driver.host", "127.0.0.1")\
+    # .config("spark.driver.bindAddress", "127.0.0.1") \
+
+    sql_connector_path = os.path.join(cur_dir.parent.parent, config['spark']['mysql_connector_jar'])
 
     spark = SparkSession.builder \
     .appName(config['spark']['app_name']) \
@@ -46,12 +56,12 @@ def main():
     .config("spark.executor.cores", config['spark']['executor_cores']) \
     .config("spark.driver.memory", config['spark']['driver_memory']) \
     .config("spark.executor.memory", config['spark']['executor_memory']) \
-    .config("spark.jars", config['spark']['mysql_connector_jar']) \
-    .config("spark.driver.extraClassPath", config['spark']['mysql_connector_jar']) \
+    .config("spark.jars", sql_connector_path) \
+    .config("spark.driver.extraClassPath", sql_connector_path) \
     .getOrCreate()
 
-    db = Database(spark)
-    # path_to_data = os.path.join(cur_dir.parent.parent, config['data']['small_openfoodfacts'])
+    db = Database(spark, host=config['spark']['host'])
+
     preprocessor = Preprocessor()
 
     assembled_data = preprocessor.load_dataset(db)
